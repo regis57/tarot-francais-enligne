@@ -1,0 +1,32 @@
+# Dependances
+node_modules/
+npm-debug.log*
+package-lock.json
+
+# Configuration locale et secrets (ne jamais publier)
+.env
+.env.local
+*.local
+secrets/
+*.key
+*.pem
+*.crt
+
+# Fichiers systeme
+.DS_Store
+Thumbs.db
+desktop.ini
+@eaDir/
+
+# Journaux et fichiers temporaires
+logs/
+*.log
+tmp/
+*.tmp
+server_test.js
+test_harness.js
+
+# Editeurs
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tarot Français</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        :root { --card-w: 62px; --card-h: 94px; --card-font: 1.05rem; --felt: #1e6f46; --felt-dark: #145233; --gold: #d4af37; }
+        @media (max-width: 900px) { :root { --card-w: 48px; --card-h: 74px; --card-font: 0.9rem; } }
+        @media (max-width: 560px) { :root { --card-w: 38px; --card-h: 60px; --card-font: 0.78rem; } }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: radial-gradient(circle at 50% 30%, var(--felt), var(--felt-dark)); color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow-x: hidden; }
+
+        .burger-btn { position: fixed; top: 12px; right: 12px; width: 40px; height: 35px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; z-index: 200; background: rgba(0,0,0,0.5); padding: 8px; border-radius: 6px; }
+        .burger-btn div { width: 100%; height: 4px; background: white; border-radius: 2px; }
+
+        .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92); z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px; overflow-y: auto; }
+        .overlay h2, .overlay h3 { margin-bottom: 10px; }
+
+        .lobby-container { background: white; color: #2c3e50; padding: 28px; border-radius: 12px; width: 92%; max-width: 460px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.35); z-index: 10; margin: 20px 0; }
+        .lobby-container input { width: 100%; padding: 12px; margin-bottom: 14px; border: 2px solid #ddd; border-radius: 6px; font-size: 1rem; text-align: center; }
+        .mode-row { display: flex; gap: 10px; }
+        .mode-row .btn { flex: 1; }
+
+        .btn { width: 100%; max-width: 300px; padding: 12px; margin: 6px 0; border: none; border-radius: 6px; font-size: 1rem; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: #1e6f46; color: white; }
+        .btn-secondary { background: #2980b9; color: white; }
+        .btn-gold { background: var(--gold); color: #3d2b00; }
+        .btn-danger { background: #c0392b; color: white; }
+        .btn:hover { filter: brightness(1.12); }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        #game-screen { display: none; width: 100%; min-height: 100vh; flex-direction: column; align-items: center; padding: 8px; padding-top: 6px; }
+        #status-board { background: rgba(0,0,0,0.72); padding: 7px 14px; border-radius: 8px; width: 100%; max-width: 760px; margin-bottom: 6px; text-align: center; font-weight: bold; font-size: 0.95rem; }
+        #contract-line { font-size: 0.8rem; color: var(--gold); font-weight: normal; margin-top: 2px; }
+
+        #opponents-row { display: flex; gap: 8px; justify-content: center; width: 100%; max-width: 900px; flex-wrap: wrap; margin-bottom: 6px; }
+        .opp-zone { background: rgba(0,0,0,0.28); border: 2px solid transparent; border-radius: 10px; padding: 6px 10px; text-align: center; min-width: 120px; flex: 1; max-width: 200px; }
+        .opp-zone .opp-name { font-size: 0.85rem; font-weight: bold; text-shadow: 1px 1px 2px black; }
+        .opp-zone .opp-detail { font-size: 0.75rem; color: #ecf0f1; }
+        .opp-zone .opp-bid { font-size: 0.72rem; color: var(--gold); min-height: 1em; }
+        .score-badge { color: #f1c40f; font-weight: bold; }
+        .active-turn { border-color: #f1c40f !important; background: rgba(241,196,15,0.18) !important; }
+        .preneur-tag { color: #e67e22; }
+
+        #table-center { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; max-width: 900px; min-height: calc(var(--card-h) + 66px); background: rgba(0,0,0,0.18); border-radius: 14px; padding: 10px; margin-bottom: 8px; }
+        #trick-area { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .trick-slot { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+        .trick-slot .slot-name { font-size: 0.7rem; background: rgba(0,0,0,0.5); padding: 2px 7px; border-radius: 4px; }
+        #center-message { font-size: 0.85rem; color: #ecf0f1; font-style: italic; margin-top: 6px; }
+
+        #chien-area { display: none; flex-direction: column; align-items: center; gap: 6px; margin-top: 8px; }
+        #chien-cards { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+
+        #my-zone { width: 100%; max-width: 980px; background: rgba(0,0,0,0.28); border: 2px solid transparent; border-radius: 12px; padding: 8px; text-align: center; }
+        #my-info { font-size: 0.85rem; margin-bottom: 6px; text-shadow: 1px 1px 2px black; }
+        #my-hand { display: flex; justify-content: center; flex-wrap: wrap; row-gap: 12px; }
+        #my-hand .card { margin-left: -20px; }
+        #my-hand .card:first-child { margin-left: 0; }
+        @media (max-width: 560px) { #my-hand .card { margin-left: -14px; } }
+
+        #ecart-bar { display: none; margin-top: 8px; }
+        #ecart-bar .btn { display: inline-block; width: auto; padding: 10px 24px; }
+
+        .card { width: var(--card-w); height: var(--card-h); background: white; border-radius: 6px; border: 1.5px solid #bbb; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: var(--card-font); font-weight: bold; cursor: pointer; box-shadow: 0 3px 6px rgba(0,0,0,0.25); position: relative; transition: transform 0.12s; user-select: none; }
+        .card.red { color: #d62c1a; }
+        .card.black { color: #2c3e50; }
+        .card.atout { background: linear-gradient(160deg, #fdf6e3, #f5e6c4); color: #7a5c00; border-color: var(--gold); }
+        .card.atout .big-num { font-size: calc(var(--card-font) * 1.5); }
+        .card.atout.bout { border-width: 2.5px; border-color: #b8860b; box-shadow: 0 0 8px rgba(212,175,55,0.7); }
+        .card.excuse { background: linear-gradient(160deg, #efe6fa, #d9c6f2); color: #5b2d8e; border-color: #8e44ad; }
+        .card .corner { position: absolute; top: 3px; left: 5px; font-size: calc(var(--card-font) * 0.72); }
+        .card.illegal { opacity: 0.38; cursor: default; }
+        .card.selected { transform: translateY(-16px); border-color: #f1c40f; border-width: 2.5px; box-shadow: 0 0 10px rgba(241,196,15,0.8); }
+        #my-hand .card:not(.illegal):hover { transform: translateY(-10px); z-index: 10; }
+        #my-hand .card.selected:hover { transform: translateY(-16px); }
+
+        .kings-row { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+        .kings-row .card { width: calc(var(--card-w) * 1.25); height: calc(var(--card-h) * 1.25); }
+
+        .bid-buttons { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+        .bid-buttons .btn { width: auto; padding: 10px 16px; margin: 0; }
+        #bid-panel, #king-panel { display: none; text-align: center; padding: 8px; background: rgba(0,0,0,0.35); border: 1px solid var(--gold); border-radius: 10px; margin-top: 6px; max-width: 640px; }
+
+        .score-table { width: 100%; background: white; color: black; border-radius: 8px; overflow: hidden; margin: 10px 0; max-width: 620px; border-collapse: collapse; }
+        .score-table th, .score-table td { padding: 9px 12px; border-bottom: 1px solid #ddd; text-align: left; font-size: 0.9rem; }
+        .score-table th { background: #eee; }
+        .positive { color: #27ae60; font-weight: bold; }
+        .negative { color: #c0392b; font-weight: bold; }
+
+        #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: var(--gold); padding: 10px 20px; border-radius: 8px; font-weight: bold; display: none; z-index: 300; max-width: 90%; text-align: center; }
+
+        .contract-recap { background: rgba(255,255,255,0.08); border: 1px solid var(--gold); border-radius: 10px; padding: 12px 18px; max-width: 620px; font-size: 0.95rem; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+    <div class="burger-btn" onclick="toggleOverlay('burger-overlay')">
+        <div></div><div></div><div></div>
+    </div>
+
+    <!-- OVERLAYS -->
+    <div class="overlay" id="burger-overlay">
+        <h3 style="font-size:1.8rem;">Menu principal</h3>
+        <button class="btn btn-gold" style="max-width:320px;" onclick="showHistory(); toggleOverlay('burger-overlay')">Tableau des scores</button>
+        <button class="btn btn-secondary" style="max-width:320px;" onclick="toggleOverlay('rules-overlay'); toggleOverlay('burger-overlay')">Rappel des règles</button>
+        <button class="btn btn-danger" style="max-width:320px;" onclick="location.reload()">Quitter vers l'accueil</button>
+        <button class="btn btn-primary" style="max-width:320px;" onclick="toggleOverlay('burger-overlay')">Reprendre le jeu</button>
+    </div>
+
+    <div class="overlay" id="history-overlay">
+        <h2 style="color:var(--gold);">Tableau des scores</h2>
+        <div id="history-container" style="max-width:95%; overflow-x:auto;"></div>
+        <button class="btn btn-primary" style="max-width:320px;" onclick="toggleOverlay('history-overlay')">Fermer</button>
+    </div>
+
+    <div class="overlay" id="rules-overlay">
+        <h2 style="color:var(--gold);">Rappel rapide</h2>
+        <div class="contract-recap" style="text-align:left;">
+            <b>Enchères :</b> Petite (×1), Garde (×2), Garde Sans le chien (×4), Garde Contre le chien (×6).<br>
+            <b>Objectif du preneur :</b> 56 pts (0 bout), 51 (1 bout), 41 (2 bouts), 36 (3 bouts).<br>
+            <b>Les 3 bouts :</b> le 21, le Petit (1 d'atout) et l'Excuse.<br>
+            <b>À la carte :</b> on fournit la couleur ; sinon on coupe à l'atout (en montant si possible) ; sinon on défausse.<br>
+            <b>À 5 joueurs :</b> le preneur appelle un Roi, son détenteur devient son partenaire secret.<br>
+            <b>Petit au bout :</b> 10 pts (× le contrat) pour le camp qui gagne le dernier pli avec le Petit.<br>
+            <b>Poignées :</b> annonçables en jouant sa 1ère carte — à 4 joueurs : 10/13/15 atouts (+20/+30/+40) ; à 5 joueurs : 8/10/13. Le bonus va au camp vainqueur de la donne.
+        </div>
+        <button class="btn btn-primary" style="max-width:320px;" onclick="toggleOverlay('rules-overlay')">Fermer</button>
+    </div>
+
+    <div class="overlay" id="round-overlay">
+        <h2 style="color:var(--gold); font-size:1.7rem;">Fin de la manche</h2>
+        <div class="contract-recap" id="round-recap"></div>
+        <div id="round-table-container"></div>
+        <button class="btn btn-primary" style="max-width:320px;" onclick="requestNextRound()">Manche suivante</button>
+    </div>
+
+    <div class="overlay" id="match-overlay">
+        <h1 style="color:var(--gold); font-size:2rem;">Partie terminée !</h1>
+        <h2 id="match-winner-text" style="color:#2ecc71;"></h2>
+        <div id="match-table-container"></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
+            <button class="btn btn-primary" style="width:auto; padding:12px 22px;" onclick="restartMatch()">Rejouer une partie</button>
+            <button class="btn btn-danger" style="width:auto; padding:12px 22px;" onclick="location.reload()">Retour à l'accueil</button>
+        </div>
+    </div>
+
+    <!-- ÉCRANS -->
+    <div class="lobby-container" id="menu-screen">
+        <h2 style="color:#1e6f46;">Tarot Français</h2>
+        <p style="font-size:0.85rem; color:#7f8c8d; margin-bottom:12px;">4 joueurs classique, ou 5 joueurs avec appel au Roi</p>
+        <input type="text" id="username-input" placeholder="Votre prénom..." value="">
+        <p style="font-weight:bold; margin:6px 0;">Longueur de la partie</p>
+        <select id="rounds-select" style="width:100%; padding:10px; margin-bottom:10px; border:2px solid #ddd; border-radius:6px; font-size:1rem; text-align:center;">
+            <option value="5" selected>5 donnes</option>
+            <option value="10">10 donnes</option>
+            <option value="15">15 donnes</option>
+            <option value="20">20 donnes</option>
+        </select>
+        <p style="font-weight:bold; margin:6px 0;">Mode Solo (contre les IA)</p>
+        <div class="mode-row">
+            <button class="btn btn-primary" onclick="selectMode('solo', 4)">4 joueurs</button>
+            <button class="btn btn-primary" onclick="selectMode('solo', 5)">5 joueurs</button>
+        </div>
+        <p style="font-weight:bold; margin:10px 0 6px;">Mode En Ligne</p>
+        <div class="mode-row">
+            <button class="btn btn-secondary" onclick="selectMode('online', 4)">4 joueurs</button>
+            <button class="btn btn-secondary" onclick="selectMode('online', 5)">5 joueurs</button>
+        </div>
+    </div>
+
+    <div class="lobby-container" id="matchmaking-screen" style="display:none;">
+        <h2 style="color:#2980b9;">Recherche de joueurs...</h2>
+        <h1 id="countdown-display" style="font-size:3.2rem; color:#e74c3c; margin:12px 0;">60</h1>
+        <p style="margin-bottom:12px;">En attente (<span id="lobby-needed">4</span> requis) : <span id="lobby-players-list"></span></p>
+        <button class="btn btn-danger" onclick="socket.emit('forceStartWithBots')">Lancer immédiatement (avec IA)</button>
+    </div>
+
+    <div id="game-screen">
+        <div id="status-board">
+            <span id="status-msg">Préparation...</span>
+            <div id="contract-line"></div>
+        </div>
+        <div id="opponents-row"></div>
+        <div id="table-center">
+            <div id="trick-area"></div>
+            <div id="bid-panel">
+                <h3 style="color:var(--gold); margin-bottom:4px;">À vous de parler</h3>
+                <p id="bid-context" style="font-size:0.82rem; margin-bottom:8px;"></p>
+                <div class="bid-buttons">
+                    <button class="btn btn-danger" onclick="sendBid(0)">Passe</button>
+                    <button class="btn btn-primary" id="bid-1" onclick="sendBid(1)">Petite (×1)</button>
+                    <button class="btn btn-primary" id="bid-2" onclick="sendBid(2)">Garde (×2)</button>
+                    <button class="btn btn-gold" id="bid-3" onclick="sendBid(3)">Garde Sans (×4)</button>
+                    <button class="btn btn-gold" id="bid-4" onclick="sendBid(4)">Garde Contre (×6)</button>
+                </div>
+            </div>
+            <div id="king-panel">
+                <h3 style="color:var(--gold); margin-bottom:4px;">Appel au Roi</h3>
+                <p style="font-size:0.82rem; margin-bottom:8px;">Regardez vos cartes en bas, puis choisissez : son détenteur sera votre partenaire secret.</p>
+                <div class="kings-row" id="kings-row"></div>
+            </div>
+            <div id="chien-area">
+                <b style="color:var(--gold);">Le Chien</b>
+                <div id="chien-cards"></div>
+            </div>
+            <div id="center-message"></div>
+        </div>
+        <div id="my-zone">
+            <div id="my-info"><span id="my-name">Moi</span> — <span class="score-badge">Score : <span id="my-score">0</span></span></div>
+            <div id="my-hand"></div>
+            <div id="ecart-bar">
+                <span id="ecart-count" style="margin-right:12px;">0 / 6</span>
+                <button class="btn btn-gold" id="ecart-validate" onclick="submitEcart()" disabled>Valider l'écart</button>
+            </div>
+            <div id="poignee-bar" style="display:none; margin-top:8px;">
+                <button class="btn btn-gold" id="poignee-btn" style="width:auto; padding:10px 18px;" onclick="announcePoignee()">Annoncer la poignée</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        const socket = io();
+        let globalName = '';
+        let currentRoomId = null;
+        let lastState = null;
+        let ecartSelection = [];
+
+        function toggleOverlay(id) {
+            const el = document.getElementById(id);
+            el.style.display = (el.style.display === 'flex') ? 'none' : 'flex';
+        }
+        function hideOverlay(id) { document.getElementById(id).style.display = 'none'; }
+        function showOverlay(id) { document.getElementById(id).style.display = 'flex'; }
+
+        function showToast(msg, duration) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.style.display = 'block';
+            clearTimeout(t._timer);
+            t._timer = setTimeout(() => { t.style.display = 'none'; }, duration || 3500);
+        }
+
+        function selectMode(mode, count) {
+            let name = document.getElementById('username-input').value.trim();
+            if (!name) return alert('Veuillez entrer votre prénom !');
+            globalName = name;
+            document.getElementById('menu-screen').style.display = 'none';
+            const rounds = parseInt(document.getElementById('rounds-select').value);
+            if (mode === 'solo') {
+                socket.emit('startSoloGame', { name: globalName, mode: count, rounds: rounds });
+            } else {
+                document.getElementById('matchmaking-screen').style.display = 'block';
+                document.getElementById('lobby-needed').innerText = count;
+                socket.emit('joinMatchmaking', { name: globalName, mode: count, rounds: rounds });
+            }
+        }
+
+        socket.on('matchmakingStatus', (data) => {
+            document.getElementById('countdown-display').innerText = data.countdown;
+            document.getElementById('lobby-players-list').innerText = data.players.join(', ');
+            document.getElementById('lobby-needed').innerText = data.needed;
+        });
+
+        socket.on('gameStarted', (roomId) => {
+            currentRoomId = roomId;
+            document.getElementById('menu-screen').style.display = 'none';
+            document.getElementById('matchmaking-screen').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'flex';
+        });
+
+        socket.on('infoMsg', (msg) => showToast(msg));
+
+        // ---------- RENDU DES CARTES ----------
+        function cardHTML(card) {
+            if (card.t === 'e') {
+                return '<span class="corner">★</span><span>EXCUSE</span><span style="font-size:1.4em;">★</span>';
+            }
+            if (card.t === 'a') {
+                return '<span class="corner">' + card.value + '</span><span class="big-num">' + card.value + '</span><span style="font-size:0.65em;">ATOUT</span>';
+            }
+            return '<span class="corner">' + card.value + card.suit + '</span><span>' + card.value + '</span><span style="font-size:1.3em;">' + card.suit + '</span>';
+        }
+
+        function makeCardEl(card) {
+            const el = document.createElement('div');
+            let cls = 'card ' + card.color;
+            if (card.t === 'a' && (card.rank === 1 || card.rank === 21)) cls += ' bout';
+            el.className = cls;
+            el.innerHTML = cardHTML(card);
+            return el;
+        }
+
+        // ---------- ENCHÈRES ----------
+        function sendBid(bid) {
+            document.getElementById('bid-panel').style.display = 'none';
+            socket.emit('placeBid', { roomId: currentRoomId, bid: bid });
+        }
+
+        function announcePoignee() {
+            document.getElementById('poignee-bar').style.display = 'none';
+            socket.emit('announcePoignee', { roomId: currentRoomId });
+        }
+
+        function showHistory() {
+            const c = document.getElementById('history-container');
+            if (!lastState || !lastState.history || !lastState.history.length) {
+                c.innerHTML = '<p>Aucune donne terminée pour le moment.</p>';
+            } else {
+                let h = '<table class="score-table"><tr><th>#</th><th>Preneur</th><th>Contrat</th><th>Résultat</th>';
+                lastState.playerNames.forEach(n => h += '<th>' + n + '</th>');
+                h += '</tr>';
+                lastState.history.forEach(l => {
+                    h += '<tr><td>' + l.donne + '</td><td><b>' + l.preneur + '</b>' + (l.partner ? ' + ' + l.partner : '') + '</td><td>' + l.contract + '</td>' +
+                        '<td class="' + (l.won ? 'positive' : 'negative') + '">' + (l.won ? 'Gagné' : 'Chuté') + ' (' + (l.value > 0 ? '+' : '') + l.value + ')' +
+                        (l.petit ? '<br><small>Petit au bout ' + (l.petit > 0 ? '+' : '') + l.petit + '</small>' : '') +
+                        (l.poignee ? '<br><small>Poignée ' + (l.poignee > 0 ? '+' : '') + l.poignee + '</small>' : '') + '</td>';
+                    l.scores.forEach(s => h += '<td><b>' + s + '</b></td>');
+                    h += '</tr>';
+                });
+                h += '</table>';
+                c.innerHTML = h;
+            }
+            showOverlay('history-overlay');
+        }
+
+        // ---------- APPEL AU ROI ----------
+        function buildKingPicker(state) {
+            const row = document.getElementById('kings-row');
+            row.innerHTML = '';
+            const suits = ['♠', '♥', '♣', '♦'];
+            const value = (state.myKingsCount >= 4) ? 'D' : 'R';
+            suits.forEach(s => {
+                const card = { t: 'c', suit: s, value: value, color: (s === '♥' || s === '♦') ? 'red' : 'black' };
+                const el = makeCardEl(card);
+                el.onclick = () => {
+                    document.getElementById('king-panel').style.display = 'none';
+                    socket.emit('callKing', { roomId: currentRoomId, card: { suit: s, value: value } });
+                };
+                row.appendChild(el);
+            });
+        }
+
+        // ---------- ÉCART ----------
+        function toggleEcartCard(idx, el, card) {
+            // Interdits : Rois, Bouts (le serveur revérifie de toute façon)
+            const forbidden = (card.t === 'c' && card.value === 'R') || card.t === 'e' || (card.t === 'a' && (card.rank === 1 || card.rank === 21));
+            if (forbidden) return showToast('Impossible d\'écarter les Rois et les Bouts.');
+            const pos = ecartSelection.indexOf(idx);
+            if (pos >= 0) { ecartSelection.splice(pos, 1); el.classList.remove('selected'); }
+            else {
+                if (ecartSelection.length >= lastState.chienSize) return showToast('Écart complet : désélectionnez une carte d\'abord.');
+                if (card.t === 'a') showToast('Atout à l\'écart : autorisé seulement si vous n\'avez pas le choix.');
+                ecartSelection.push(idx);
+                el.classList.add('selected');
+            }
+            updateEcartBar();
+        }
+
+        function updateEcartBar() {
+            document.getElementById('ecart-count').innerText = ecartSelection.length + ' / ' + (lastState ? lastState.chienSize : 6);
+            document.getElementById('ecart-validate').disabled = !lastState || (ecartSelection.length !== lastState.chienSize);
+        }
+
+        function submitEcart() {
+            socket.emit('submitEcart', { roomId: currentRoomId, indices: ecartSelection });
+        }
+
+        // ---------- ÉTAT DU JEU ----------
+        socket.on('gameState', (state) => {
+            lastState = state;
+            const me = state.myIndex;
+            const N = state.playerCount;
+
+            // Bandeau du haut
+            document.getElementById('status-msg').innerText = state.message || '';
+            let cl = 'Manche ' + state.roundNumber + '/' + state.totalRounds;
+            if (state.contract) {
+                cl += ' — ' + state.playerNames[state.preneur] + ' joue une ' + state.contract;
+                if (state.calledCard) cl += ' (appel : ' + (state.calledCard.value === 'R' ? 'Roi' : 'Dame') + ' de ' + state.calledCard.suit + ')';
+            }
+            if (state.phase === 'play') cl += ' — Pli ' + (state.tricksPlayed + 1) + '/' + state.totalTricks;
+            document.getElementById('contract-line').innerText = cl;
+
+            // Adversaires
+            const row = document.getElementById('opponents-row');
+            row.innerHTML = '';
+            for (let k = 1; k < N; k++) {
+                const idx = (me + k) % N;
+                const div = document.createElement('div');
+                div.className = 'opp-zone';
+                const isActive = (state.phase === 'play' && state.currentTurn === idx) || (state.phase === 'bidding' && state.bidTurn === idx);
+                if (isActive) div.classList.add('active-turn');
+                let tags = '';
+                if (idx === state.dealer) tags += ' 🎴';
+                if (state.preneur === idx && state.contract) tags += ' <span class="preneur-tag">★ Preneur</span>';
+                let bidTxt = '';
+                if (state.phase === 'bidding' && state.bids[idx] >= 0) bidTxt = state.bidNames[state.bids[idx]];
+                div.innerHTML = '<div class="opp-name">' + state.playerNames[idx] + tags + '</div>' +
+                    '<div class="opp-detail">' + state.allPlayersCardsCount[idx] + ' cartes — <span class="score-badge">' + state.allPlayersScores[idx] + ' pts</span></div>' +
+                    '<div class="opp-bid">' + bidTxt + '</div>';
+                row.appendChild(div);
+            }
+
+            // Zone centrale : pli en cours
+            const trickArea = document.getElementById('trick-area');
+            trickArea.innerHTML = '';
+            (state.trick || []).forEach(t => {
+                const slot = document.createElement('div');
+                slot.className = 'trick-slot';
+                const nm = document.createElement('div');
+                nm.className = 'slot-name';
+                nm.innerText = state.playerNames[t.playerIdx];
+                slot.appendChild(nm);
+                slot.appendChild(makeCardEl(t.card));
+                trickArea.appendChild(slot);
+            });
+
+            // Dernier pli en petit message
+            const cm = document.getElementById('center-message');
+            if (state.phase === 'play' && (!state.trick || state.trick.length === 0) && state.lastTrick) {
+                cm.innerText = 'Dernier pli remporté par ' + state.playerNames[state.lastTrick.winner];
+            } else if (state.phase === 'bidding') {
+                cm.innerText = 'Phase d\'enchères en cours...';
+            } else { cm.innerText = ''; }
+
+            // Le chien (pendant l'écart)
+            const chienArea = document.getElementById('chien-area');
+            if (state.phase === 'ecart' && state.chien) {
+                chienArea.style.display = 'flex';
+                const cc = document.getElementById('chien-cards');
+                cc.innerHTML = '';
+                state.chien.forEach(c => cc.appendChild(makeCardEl(c)));
+            } else { chienArea.style.display = 'none'; }
+
+            // Ma zone
+            document.getElementById('my-name').innerText = state.playerNames[me] + (state.preneur === me && state.contract ? ' ★ Preneur' : '') + (state.dealer === me ? ' 🎴' : '');
+            document.getElementById('my-score').innerText = state.allPlayersScores[me];
+            const myZone = document.getElementById('my-zone');
+            myZone.classList.remove('active-turn');
+            if ((state.phase === 'play' && state.currentTurn === me) || (state.phase === 'bidding' && state.bidTurn === me)) myZone.classList.add('active-turn');
+
+            // Ma main
+            const handEl = document.getElementById('my-hand');
+            handEl.innerHTML = '';
+            const inEcart = (state.phase === 'ecart' && state.iAmPreneur);
+            if (!inEcart) { ecartSelection = []; }
+            state.hand.forEach((card, i) => {
+                const el = makeCardEl(card);
+                if (inEcart) {
+                    if (ecartSelection.includes(i)) el.classList.add('selected');
+                    el.onclick = () => toggleEcartCard(i, el, card);
+                } else if (state.phase === 'play' && state.currentTurn === me) {
+                    if (state.legal.includes(i)) {
+                        el.onclick = () => socket.emit('playCard', { roomId: currentRoomId, cardIndex: i });
+                    } else { el.classList.add('illegal'); }
+                }
+                handEl.appendChild(el);
+            });
+
+            // Barre d'écart
+            document.getElementById('ecart-bar').style.display = inEcart ? 'block' : 'none';
+            if (inEcart) updateEcartBar();
+
+            // Panneaux intégrés au tapis : vos cartes restent visibles en bas
+            const bidPanel = document.getElementById('bid-panel');
+            if (state.phase === 'bidding' && state.bidTurn === me) {
+                for (let b = 1; b <= 4; b++) document.getElementById('bid-' + b).disabled = (b <= state.bestBid);
+                const others = state.bids.map((b, i) => (b > 0) ? state.playerNames[i] + ' : ' + state.bidNames[b] : null).filter(Boolean);
+                document.getElementById('bid-context').innerText = others.length ? others.join(' — ') : 'Personne n\'a encore pris.';
+                bidPanel.style.display = 'block';
+            } else { bidPanel.style.display = 'none'; }
+
+            const kingPanel = document.getElementById('king-panel');
+            if (state.phase === 'callKing' && state.iAmPreneur) {
+                buildKingPicker(state);
+                kingPanel.style.display = 'block';
+            } else { kingPanel.style.display = 'none'; }
+
+            // Bouton d'annonce de poignée (avant de jouer sa première carte)
+            const pb = document.getElementById('poignee-bar');
+            if (state.phase === 'play' && state.currentTurn === me && state.myPoignee) {
+                document.getElementById('poignee-btn').innerText = 'Annoncer la poignée (' + state.myPoignee.count + ' atouts, +' + state.myPoignee.bonus + ')';
+                pb.style.display = 'block';
+            } else { pb.style.display = 'none'; }
+        });
+
+        // ---------- FIN DE MANCHE / PARTIE ----------
+        function resultTable(results) {
+            let html = '<table class="score-table"><tr><th>Joueur</th><th>Rôle</th><th>Manche</th><th>Total</th></tr>';
+            results.forEach(r => {
+                const cls = r.delta >= 0 ? 'positive' : 'negative';
+                html += '<tr><td><b>' + r.name + '</b></td><td>' + r.role + '</td><td class="' + cls + '">' + (r.delta >= 0 ? '+' : '') + r.delta + '</td><td><b>' + r.score + '</b></td></tr>';
+            });
+            return html + '</table>';
+        }
+
+        socket.on('roundEnd', (data) => {
+            const won = data.won;
+            let recap = '<b style="color:var(--gold);">' + data.preneur + '</b> jouait une <b>' + data.contract + '</b>';
+            if (data.partnerName) recap += ' avec <b>' + data.partnerName + '</b>';
+            else if (data.calledCard) recap += ' <i>(seul : il possédait la carte appelée)</i>';
+            recap += '.<br>Attaque : <b>' + data.attackPts + ' points</b> avec ' + data.bouts + ' bout(s) — objectif <b>' + data.target + '</b>.<br>';
+            recap += won ? '<span class="positive">Contrat réussi !</span>' : '<span class="negative">Contrat chuté...</span>';
+            if (data.petitBonus) recap += ' — Petit au bout : ' + (data.petitBonus > 0 ? '+' : '') + data.petitBonus;
+            if (data.poigneeBonus) recap += ' — Poignée(s) : ' + (data.poigneeBonus > 0 ? '+' : '') + data.poigneeBonus;
+            recap += ' <b>(valeur : ' + data.totalValue + ')</b>';
+
+            if (data.isMatchEnd) {
+                document.getElementById('match-winner-text').innerText = '🏆 Grand vainqueur : ' + data.matchWinner + ' 🏆';
+                document.getElementById('match-table-container').innerHTML = '<div class="contract-recap" style="margin-bottom:8px;">' + recap + '</div>' + resultTable(data.results);
+                showOverlay('match-overlay');
+            } else {
+                document.getElementById('round-recap').innerHTML = recap;
+                document.getElementById('round-table-container').innerHTML = resultTable(data.results);
+                showOverlay('round-overlay');
+            }
+        });
+
+        function requestNextRound() {
+            hideOverlay('round-overlay');
+            socket.emit('nextRound', currentRoomId);
+        }
+        function restartMatch() {
+            hideOverlay('match-overlay');
+            socket.emit('restartMatch', currentRoomId);
+        }
+    </script>
+</body>
+</html>

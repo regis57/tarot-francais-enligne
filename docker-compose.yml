@@ -1,0 +1,19 @@
+version: '3.8'
+
+# Les valeurs par defaut conviennent a un NAS Synology standard.
+# Pour personnaliser sans modifier ce fichier : copiez .env.example en .env
+services:
+  jeu-tarot:
+    image: node:20-alpine
+    container_name: tarot-server
+    working_dir: /app
+    volumes:
+      # Chemin ABSOLU du dossier du projet sur la machine hote
+      - ${TAROT_DIR:-/volume1/docker/tarot}:/app
+    ports:
+      # <port expose sur votre reseau>:<port interne, ne pas changer>
+      - "${TAROT_PORT:-3001}:3000"
+    environment:
+      - PORT=3000
+    command: sh -c "npm install && npm start"
+    restart: always
