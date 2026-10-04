@@ -41,7 +41,7 @@ Toute la logique de jeu est dans `server.js` ; le navigateur n'est qu'un affiche
 ## Installation rapide (Docker)
 
 ```bash
-git clone https://github.com/VOTRE-COMPTE/VOTRE-DEPOT.git tarot
+git clone https://github.com/regis57/tarot-francais-enligne.git tarot
 cd tarot
 cp .env.example .env     # adaptez TAROT_DIR au chemin absolu du dossier
 docker compose up -d
