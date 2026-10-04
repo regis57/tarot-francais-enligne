@@ -6,6 +6,32 @@ Pensé pour tourner en auto-hébergement sur un NAS Synology, un Raspberry Pi ou
 
 ---
 
+## Aperçu
+
+<p align="center">
+  <img src="docs/screenshots/01-accueil.png" alt="Écran d'accueil : choix du mode, du nombre de joueurs et de la longueur de partie" width="100%">
+</p>
+
+L'accueil tient en un écran : un prénom, la longueur de la partie, et le mode voulu.
+
+<p align="center">
+  <img src="docs/screenshots/02-encheres.png" alt="Phase d'enchères : les contrats proposés au centre, la main du joueur visible en bas" width="100%">
+</p>
+
+Pendant les enchères, les contrats s'affichent au centre du tapis : la main reste visible pour décider en connaissance de cause.
+
+<p align="center">
+  <img src="docs/screenshots/03-partie.png" alt="Partie en cours : pli au centre, annonce d'une poignée de 10 atouts en bas" width="100%">
+</p>
+
+En jeu, seules les cartes jouables sont cliquables. Ici un robot vient d'annoncer une poignée de 10 atouts, détaillée dans le bandeau du bas.
+
+<p align="center">
+  <img src="docs/screenshots/04-menu.png" alt="Menu accessible à tout moment : tableau des scores, rappel des règles" width="100%">
+</p>
+
+Le menu reste accessible à tout moment, avec le tableau des scores détaillé et un rappel des règles.
+
 ## Fonctionnalités
 
 - **Deux formats** : Tarot à 4 joueurs (18 cartes, chien de 6) et à 5 joueurs avec appel au Roi (15 cartes, chien de 3)
