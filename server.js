@@ -1,3 +1,18 @@
+/*
+ * Tarot Francais en ligne - jeu de Tarot multijoueur (4 et 5 joueurs)
+ * Copyright (C) 2026 Tarot Francais contributors
+ *
+ * Ce programme est un logiciel libre : vous pouvez le redistribuer et/ou le
+ * modifier selon les termes de la GNU Affero General Public License publiee
+ * par la Free Software Foundation, soit la version 3, soit (a votre choix)
+ * toute version ulterieure.
+ *
+ * Il est distribue dans l'espoir qu'il sera utile, mais SANS AUCUNE GARANTIE,
+ * sans meme la garantie implicite de QUALITE MARCHANDE ou d'ADEQUATION A UN
+ * USAGE PARTICULIER. Voir la GNU Affero General Public License pour plus de
+ * details : <https://www.gnu.org/licenses/>.
+ */
+
 const express = require('express');
 const app = express();
 const http = require('http').createServer(app);

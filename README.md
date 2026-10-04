@@ -95,4 +95,8 @@ Aucune donnée personnelle n'est collectée ni stockée : seul le prénom saisi 
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+**GNU AGPL-3.0-or-later** — voir [LICENSE](LICENSE).
+
+Vous pouvez utiliser, modifier et redistribuer ce jeu librement. En contrepartie, toute version modifiée **mise à disposition sur un réseau** (un site web, un serveur de jeu accessible à d'autres) doit elle aussi rendre son code source disponible sous la même licence. Les améliorations profitent donc à tout le monde.
+
+Pour un usage commercial sous des conditions différentes, une licence séparée peut être négociée avec l'auteur.
